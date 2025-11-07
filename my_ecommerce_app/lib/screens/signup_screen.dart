@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:my_ecommerce_app/screens/login_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 void main() {
   runApp(const MyApp());
@@ -32,48 +33,64 @@ class SignUpScreen extends StatefulWidget {
 class _SignUpScreenState extends State<SignUpScreen> {
   final _formKey = GlobalKey<FormState>(); // ✅ fixed variable name
   final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool  _isloading = false;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _usernameController.dispose();
     super.dispose();
   }
-  Future<void> _signUp() async{
-    if(!_formKey.currentState!.validate()){
+  Future<void> _signUp() async {
+    if (!_formKey.currentState!.validate()) {
       return;
     }
     setState(() {
       _isloading = true;
     });
-    try{
+
+    try {
+      final UserCredential userCredential =
       await _auth.createUserWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
-    }on FirebaseAuthException catch(e){
+
+      await userCredential.user?.updateDisplayName(
+        _usernameController.text.trim(),
+      );
+
+      if (userCredential.user != null) {
+        await _firestore.collection('users').doc(userCredential.user!.uid).set({
+          'email': _emailController.text.trim(),
+          'role': "user",
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+    } on FirebaseAuthException catch (e) {
       String message = 'An error occurred';
-      if(e.code == 'weak-password'){
+      if (e.code == 'weak-password') {
         message = 'The password provided is too weak.';
-      }else if(e.code == 'email-already-in-use'){
+      } else if (e.code == 'email-already-in-use') {
         message = 'The account already exists for that email.';
-  }
+      }
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+        SnackBar(
           content: Text(message),
           backgroundColor: Colors.red,
         ),
       );
-    }catch (e){
-    print(e);
-    }
-    if(mounted){
-      setState(() {
-        _isloading = false;
-      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isloading = false;
+        });
+      }
     }
   }
 
@@ -113,7 +130,22 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
               const SizedBox(height: 16),
 
-              // 🔒 Password Field
+              TextFormField(
+                controller: _usernameController,
+                obscureText: false,
+                decoration: const InputDecoration(
+                  labelText: 'Username',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter your username';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 18),
+
               TextFormField(
                 controller: _passwordController,
                 obscureText: true,

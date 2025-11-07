@@ -1,17 +1,36 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
-import 'firebase_options.dart';
 import 'package:my_ecommerce_app/screens/auth_wrapper.dart';
+import 'package:my_ecommerce_app/providers/cart_provider.dart';
+import 'package:provider/provider.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
-void main() async{
-   WidgetsBinding widgetsBinding= WidgetsFlutterBinding.ensureInitialized();
+void main() async {
+  WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+  FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
+
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  runApp(const MyApp());
+
+  await FirebaseAuth.instance.setPersistence(Persistence.LOCAL);
+
+  final cartProvider = CartProvider();
+
+  cartProvider.initializeAuthListener();
+
+  runApp(
+    ChangeNotifierProvider.value(
+      value: cartProvider,
+      child: const MyApp(),
+    ),
+  );
+
   FlutterNativeSplash.remove();
 }
+
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
